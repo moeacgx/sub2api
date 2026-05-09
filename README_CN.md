@@ -1,5 +1,7 @@
 # Sub2API
 
+> **说明：** 本仓库是由 `moeacgx` 维护的 Sub2API 二开版本，基于上游项目 [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api) 修改而来，并非官方上游仓库。使用前请注意与上游版本之间可能存在的功能和部署差异。
+
 <div align="center">
 
 [![Go](https://img.shields.io/badge/Go-1.25.7-00ADD8.svg)](https://golang.org/)

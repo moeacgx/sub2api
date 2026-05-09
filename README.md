@@ -1,5 +1,7 @@
 # Sub2API
 
+> **Notice:** This repository is a secondary-development fork maintained by `moeacgx`, based on the upstream project [Wei-Shaw/sub2api](https://github.com/Wei-Shaw/sub2api). It is not the official upstream repository. Please review any feature or deployment differences before use.
+
 <div align="center">
 
 [![Go](https://img.shields.io/badge/Go-1.25.7-00ADD8.svg)](https://golang.org/)
