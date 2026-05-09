@@ -2666,72 +2666,17 @@ func accountOAuthOfficialWindowState(account *Account, window string, now time.T
 }
 
 func (s *GatewayService) isAccountSchedulableForOAuthPreemptivePause(ctx context.Context, account *Account) bool {
-	if account == nil || !account.SupportsOAuthOfficialWindowPause() {
+	resetAt, ok := evaluateOAuthPreemptivePause(ctx, account, s.usageLogRepo, time.Now(), func(window string, startTime time.Time) (float64, bool) {
+		return oauthPauseCostFromPrefetchContext(ctx, account.ID, window)
+	})
+	if !ok || resetAt.IsZero() {
 		return true
 	}
-
-	now := time.Now()
-	var (
-		triggered bool
-		bestReset time.Time
-	)
-
-	for _, window := range []string{"5h", "7d"} {
-		utilization, startTime, resetAt, ok := accountOAuthOfficialWindowState(account, window, now)
-		if !ok {
-			continue
-		}
-
-		switch window {
-		case "5h":
-			if limit := account.GetEffectiveOAuth5hPausePercent(); limit > 0 && utilization >= limit {
-				triggered = true
-			}
-			if limit := account.GetEffectiveOAuth5hPauseAmount(); limit > 0 {
-				cost, exists := oauthPauseCostFromPrefetchContext(ctx, account.ID, window)
-				if !exists {
-					stats, err := s.usageLogRepo.GetAccountWindowStats(ctx, account.ID, startTime)
-					if err == nil && stats != nil {
-						cost = stats.StandardCost
-						exists = true
-					}
-				}
-				if exists && cost >= limit {
-					triggered = true
-				}
-			}
-		case "7d":
-			if limit := account.GetEffectiveOAuth7dPausePercent(); limit > 0 && utilization >= limit {
-				triggered = true
-			}
-			if limit := account.GetEffectiveOAuth7dPauseAmount(); limit > 0 {
-				cost, exists := oauthPauseCostFromPrefetchContext(ctx, account.ID, window)
-				if !exists {
-					stats, err := s.usageLogRepo.GetAccountWindowStats(ctx, account.ID, startTime)
-					if err == nil && stats != nil {
-						cost = stats.StandardCost
-						exists = true
-					}
-				}
-				if exists && cost >= limit {
-					triggered = true
-				}
-			}
-		}
-
-		if triggered && resetAt.After(bestReset) {
-			bestReset = resetAt
-		}
-	}
-
-	if !triggered || bestReset.IsZero() {
-		return true
-	}
-	if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(bestReset) {
-		if err := s.accountRepo.SetRateLimited(ctx, account.ID, bestReset); err != nil {
-			slog.Warn("oauth_preemptive_pause_set_rate_limit_failed", "account_id", account.ID, "reset_at", bestReset, "error", err)
+	if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
+		if err := s.accountRepo.SetRateLimited(ctx, account.ID, resetAt); err != nil {
+			slog.Warn("oauth_preemptive_pause_set_rate_limit_failed", "account_id", account.ID, "reset_at", resetAt, "error", err)
 		} else {
-			account.RateLimitResetAt = &bestReset
+			account.RateLimitResetAt = &resetAt
 		}
 	}
 	return false
