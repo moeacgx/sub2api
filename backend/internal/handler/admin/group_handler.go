@@ -91,6 +91,10 @@ type CreateGroupRequest struct {
 	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
 	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	OAuth5hPausePercent optionalLimitField `json:"oauth_5h_pause_percent"`
+	OAuth5hPauseAmount  optionalLimitField `json:"oauth_5h_pause_amount_usd"`
+	OAuth7dPausePercent optionalLimitField `json:"oauth_7d_pause_percent"`
+	OAuth7dPauseAmount  optionalLimitField `json:"oauth_7d_pause_amount_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            bool     `json:"allow_image_generation"`
 	ImageRateIndependent            bool     `json:"image_rate_independent"`
@@ -131,6 +135,10 @@ type UpdateGroupRequest struct {
 	DailyLimitUSD    optionalLimitField `json:"daily_limit_usd"`
 	WeeklyLimitUSD   optionalLimitField `json:"weekly_limit_usd"`
 	MonthlyLimitUSD  optionalLimitField `json:"monthly_limit_usd"`
+	OAuth5hPausePercent optionalLimitField `json:"oauth_5h_pause_percent"`
+	OAuth5hPauseAmount  optionalLimitField `json:"oauth_5h_pause_amount_usd"`
+	OAuth7dPausePercent optionalLimitField `json:"oauth_7d_pause_percent"`
+	OAuth7dPauseAmount  optionalLimitField `json:"oauth_7d_pause_amount_usd"`
 	// 图片生成计费配置（antigravity 和 gemini 平台使用，负数表示清除配置）
 	AllowImageGeneration            *bool    `json:"allow_image_generation"`
 	ImageRateIndependent            *bool    `json:"image_rate_independent"`
@@ -257,6 +265,10 @@ func (h *GroupHandler) Create(c *gin.Context) {
 		DailyLimitUSD:                   req.DailyLimitUSD.ToServiceInput(),
 		WeeklyLimitUSD:                  req.WeeklyLimitUSD.ToServiceInput(),
 		MonthlyLimitUSD:                 req.MonthlyLimitUSD.ToServiceInput(),
+		OAuth5hPausePercent:             req.OAuth5hPausePercent.ToServiceInput(),
+		OAuth5hPauseAmount:              req.OAuth5hPauseAmount.ToServiceInput(),
+		OAuth7dPausePercent:             req.OAuth7dPausePercent.ToServiceInput(),
+		OAuth7dPauseAmount:              req.OAuth7dPauseAmount.ToServiceInput(),
 		AllowImageGeneration:            req.AllowImageGeneration,
 		ImageRateIndependent:            req.ImageRateIndependent,
 		ImageRateMultiplier:             req.ImageRateMultiplier,
@@ -312,6 +324,10 @@ func (h *GroupHandler) Update(c *gin.Context) {
 		DailyLimitUSD:                   req.DailyLimitUSD.ToServiceInput(),
 		WeeklyLimitUSD:                  req.WeeklyLimitUSD.ToServiceInput(),
 		MonthlyLimitUSD:                 req.MonthlyLimitUSD.ToServiceInput(),
+		OAuth5hPausePercent:             req.OAuth5hPausePercent.ToServiceInput(),
+		OAuth5hPauseAmount:              req.OAuth5hPauseAmount.ToServiceInput(),
+		OAuth7dPausePercent:             req.OAuth7dPausePercent.ToServiceInput(),
+		OAuth7dPauseAmount:              req.OAuth7dPauseAmount.ToServiceInput(),
 		AllowImageGeneration:            req.AllowImageGeneration,
 		ImageRateIndependent:            req.ImageRateIndependent,
 		ImageRateMultiplier:             req.ImageRateMultiplier,

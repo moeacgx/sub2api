@@ -1579,12 +1579,13 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 				out.Proxy = proxy
 			}
 		}
-		if groups, ok := groupsByAccount[acc.ID]; ok {
-			out.Groups = groups
-		}
-		if groupIDs, ok := groupIDsByAccount[acc.ID]; ok {
-			out.GroupIDs = groupIDs
-		}
+	if groups, ok := groupsByAccount[acc.ID]; ok {
+		out.Groups = groups
+	}
+	applyResolvedOAuthPauseConfig(out)
+	if groupIDs, ok := groupIDsByAccount[acc.ID]; ok {
+		out.GroupIDs = groupIDs
+	}
 		if ags, ok := accountGroupsByAccount[acc.ID]; ok {
 			out.AccountGroups = ags
 		}
@@ -1592,6 +1593,76 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 	}
 
 	return outAccounts, nil
+}
+
+func applyResolvedOAuthPauseConfig(account *service.Account) {
+	if account == nil {
+		return
+	}
+	if account.Extra == nil {
+		account.Extra = make(map[string]any)
+	}
+
+	type resolvedKey struct {
+		targetKey string
+		current   float64
+		extract   func(*service.Group) *float64
+	}
+
+	keys := []resolvedKey{
+		{
+			targetKey: "effective_oauth_5h_pause_percent",
+			current:   account.GetOAuth5hPausePercent(),
+			extract: func(g *service.Group) *float64 {
+				return g.OAuth5hPausePercent
+			},
+		},
+		{
+			targetKey: "effective_oauth_5h_pause_amount_usd",
+			current:   account.GetOAuth5hPauseAmount(),
+			extract: func(g *service.Group) *float64 {
+				return g.OAuth5hPauseAmount
+			},
+		},
+		{
+			targetKey: "effective_oauth_7d_pause_percent",
+			current:   account.GetOAuth7dPausePercent(),
+			extract: func(g *service.Group) *float64 {
+				return g.OAuth7dPausePercent
+			},
+		},
+		{
+			targetKey: "effective_oauth_7d_pause_amount_usd",
+			current:   account.GetOAuth7dPauseAmount(),
+			extract: func(g *service.Group) *float64 {
+				return g.OAuth7dPauseAmount
+			},
+		},
+	}
+
+	for _, item := range keys {
+		delete(account.Extra, item.targetKey)
+		if item.current > 0 {
+			continue
+		}
+		var minVal *float64
+		for _, group := range account.Groups {
+			if group == nil {
+				continue
+			}
+			value := item.extract(group)
+			if value == nil || *value <= 0 {
+				continue
+			}
+			if minVal == nil || *value < *minVal {
+				v := *value
+				minVal = &v
+			}
+		}
+		if minVal != nil {
+			account.Extra[item.targetKey] = *minVal
+		}
+	}
 }
 
 func tempUnschedulablePredicate() dbpredicate.Account {
@@ -1647,8 +1718,23 @@ func (r *accountRepository) loadAccountGroups(ctx context.Context, accountIDs []
 		return nil, nil, nil, err
 	}
 
+	uniqueGroupIDs := make([]int64, 0)
+	groupSeen := make(map[int64]struct{})
+	for _, ag := range entries {
+		if ag.GroupID <= 0 {
+			continue
+		}
+		if _, ok := groupSeen[ag.GroupID]; ok {
+			continue
+		}
+		groupSeen[ag.GroupID] = struct{}{}
+		uniqueGroupIDs = append(uniqueGroupIDs, ag.GroupID)
+	}
+	configs, _ := r.loadOAuthPauseConfigs(ctx, uniqueGroupIDs)
+
 	for _, ag := range entries {
 		groupSvc := groupEntityToService(ag.Edges.Group)
+		applyOAuthPauseConfig(groupSvc, configs[ag.GroupID])
 		agSvc := service.AccountGroup{
 			AccountID: ag.AccountID,
 			GroupID:   ag.GroupID,
@@ -1664,6 +1750,53 @@ func (r *accountRepository) loadAccountGroups(ctx context.Context, accountIDs []
 	}
 
 	return groupsByAccount, groupIDsByAccount, accountGroupsByAccount, nil
+}
+
+func (r *accountRepository) loadOAuthPauseConfigs(ctx context.Context, groupIDs []int64) (map[int64]*groupOAuthPauseConfig, error) {
+	result := make(map[int64]*groupOAuthPauseConfig)
+	if len(groupIDs) == 0 {
+		return result, nil
+	}
+
+	rows, err := r.sql.QueryContext(ctx, `
+		SELECT group_id, oauth_5h_pause_percent, oauth_5h_pause_amount_usd, oauth_7d_pause_percent, oauth_7d_pause_amount_usd
+		FROM group_oauth_pause_configs
+		WHERE group_id = ANY($1)
+	`, pq.Array(groupIDs))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		cfg := &groupOAuthPauseConfig{}
+		var (
+			groupID int64
+			fiveHPct, fiveHAmt, sevenDPct, sevenDAmt sql.NullFloat64
+		)
+		if err := rows.Scan(&groupID, &fiveHPct, &fiveHAmt, &sevenDPct, &sevenDAmt); err != nil {
+			return nil, err
+		}
+		if fiveHPct.Valid {
+			v := fiveHPct.Float64
+			cfg.OAuth5hPausePercent = &v
+		}
+		if fiveHAmt.Valid {
+			v := fiveHAmt.Float64
+			cfg.OAuth5hPauseAmount = &v
+		}
+		if sevenDPct.Valid {
+			v := sevenDPct.Float64
+			cfg.OAuth7dPausePercent = &v
+		}
+		if sevenDAmt.Valid {
+			v := sevenDAmt.Float64
+			cfg.OAuth7dPauseAmount = &v
+		}
+		result[groupID] = cfg
+	}
+
+	return result, rows.Err()
 }
 
 func (r *accountRepository) loadAccountGroupIDs(ctx context.Context, accountID int64) ([]int64, error) {

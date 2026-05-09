@@ -507,6 +507,10 @@ export interface Group {
   daily_limit_usd: number | null
   weekly_limit_usd: number | null
   monthly_limit_usd: number | null
+  oauth_5h_pause_percent?: number | null
+  oauth_5h_pause_amount_usd?: number | null
+  oauth_7d_pause_percent?: number | null
+  oauth_7d_pause_amount_usd?: number | null
   // 图片生成计费配置
   allow_image_generation: boolean
   image_rate_independent: boolean
@@ -620,6 +624,10 @@ export interface CreateGroupRequest {
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
+  oauth_5h_pause_percent?: number | null
+  oauth_5h_pause_amount_usd?: number | null
+  oauth_7d_pause_percent?: number | null
+  oauth_7d_pause_amount_usd?: number | null
   allow_image_generation?: boolean
   image_rate_independent?: boolean
   image_rate_multiplier?: number
@@ -648,6 +656,10 @@ export interface UpdateGroupRequest {
   daily_limit_usd?: number | null
   weekly_limit_usd?: number | null
   monthly_limit_usd?: number | null
+  oauth_5h_pause_percent?: number | null
+  oauth_5h_pause_amount_usd?: number | null
+  oauth_7d_pause_percent?: number | null
+  oauth_7d_pause_amount_usd?: number | null
   allow_image_generation?: boolean
   image_rate_independent?: boolean
   image_rate_multiplier?: number
@@ -834,6 +846,10 @@ export interface Account {
   // 5h窗口费用控制（仅 Anthropic OAuth/SetupToken 账号有效）
   window_cost_limit?: number | null
   window_cost_sticky_reserve?: number | null
+  oauth_5h_pause_percent?: number | null
+  oauth_5h_pause_amount_usd?: number | null
+  oauth_7d_pause_percent?: number | null
+  oauth_7d_pause_amount_usd?: number | null
 
   // 会话数量控制（仅 Anthropic OAuth/SetupToken 账号有效）
   max_sessions?: number | null
