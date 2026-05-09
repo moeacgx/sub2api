@@ -1579,13 +1579,13 @@ func (r *accountRepository) accountsToService(ctx context.Context, accounts []*d
 				out.Proxy = proxy
 			}
 		}
-	if groups, ok := groupsByAccount[acc.ID]; ok {
-		out.Groups = groups
-	}
-	applyResolvedOAuthPauseConfig(out)
-	if groupIDs, ok := groupIDsByAccount[acc.ID]; ok {
-		out.GroupIDs = groupIDs
-	}
+		if groups, ok := groupsByAccount[acc.ID]; ok {
+			out.Groups = groups
+		}
+		applyResolvedOAuthPauseConfig(out)
+		if groupIDs, ok := groupIDsByAccount[acc.ID]; ok {
+			out.GroupIDs = groupIDs
+		}
 		if ags, ok := accountGroupsByAccount[acc.ID]; ok {
 			out.AccountGroups = ags
 		}
@@ -1766,12 +1766,12 @@ func (r *accountRepository) loadOAuthPauseConfigs(ctx context.Context, groupIDs 
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		cfg := &groupOAuthPauseConfig{}
 		var (
-			groupID int64
+			groupID                                  int64
 			fiveHPct, fiveHAmt, sevenDPct, sevenDAmt sql.NullFloat64
 		)
 		if err := rows.Scan(&groupID, &fiveHPct, &fiveHAmt, &sevenDPct, &sevenDAmt); err != nil {

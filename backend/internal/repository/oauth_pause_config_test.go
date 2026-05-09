@@ -8,7 +8,7 @@ import (
 
 func TestApplyResolvedOAuthPauseConfig_UsesStrictestGroupFallback(t *testing.T) {
 	account := &service.Account{
-		Extra:  map[string]any{},
+		Extra: map[string]any{},
 		Groups: []*service.Group{
 			{
 				ID:                  1,

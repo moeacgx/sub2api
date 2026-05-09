@@ -12,8 +12,8 @@ func TestAccountOAuthOfficialWindowState_OpenAI7d(t *testing.T) {
 		Platform: PlatformOpenAI,
 		Type:     AccountTypeOAuth,
 		Extra: map[string]any{
-			"codex_7d_used_percent":  88.0,
-			"codex_7d_reset_at":      resetAt.Format(time.RFC3339),
+			"codex_7d_used_percent": 88.0,
+			"codex_7d_reset_at":     resetAt.Format(time.RFC3339),
 		},
 	}
 

@@ -338,12 +338,12 @@ func (r *groupRepository) loadOAuthPauseConfigs(ctx context.Context, groupIDs []
 	if err != nil {
 		return nil, err
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	for rows.Next() {
 		cfg := &groupOAuthPauseConfig{}
 		var (
-			groupID int64
+			groupID                                  int64
 			fiveHPct, fiveHAmt, sevenDPct, sevenDAmt sql.NullFloat64
 		)
 		if err := rows.Scan(&groupID, &fiveHPct, &fiveHAmt, &sevenDPct, &sevenDAmt); err != nil {

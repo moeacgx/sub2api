@@ -180,15 +180,15 @@ type AdminBoundAuthIdentityChannel struct {
 }
 
 type CreateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   float64
-	IsExclusive      bool
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                string
+	Description         string
+	Platform            string
+	RateMultiplier      float64
+	IsExclusive         bool
+	SubscriptionType    string   // standard/subscription
+	DailyLimitUSD       *float64 // 日限额 (USD)
+	WeeklyLimitUSD      *float64 // 周限额 (USD)
+	MonthlyLimitUSD     *float64 // 月限额 (USD)
 	OAuth5hPausePercent *float64
 	OAuth5hPauseAmount  *float64
 	OAuth7dPausePercent *float64
@@ -223,16 +223,16 @@ type CreateGroupInput struct {
 }
 
 type UpdateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   *float64 // 使用指针以支持设置为0
-	IsExclusive      *bool
-	Status           string
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                string
+	Description         string
+	Platform            string
+	RateMultiplier      *float64 // 使用指针以支持设置为0
+	IsExclusive         *bool
+	Status              string
+	SubscriptionType    string   // standard/subscription
+	DailyLimitUSD       *float64 // 日限额 (USD)
+	WeeklyLimitUSD      *float64 // 周限额 (USD)
+	MonthlyLimitUSD     *float64 // 月限额 (USD)
 	OAuth5hPausePercent *float64
 	OAuth5hPauseAmount  *float64
 	OAuth7dPausePercent *float64
@@ -1960,13 +1960,15 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		return nil, err
 	}
 
-	if accounts, err := s.accountRepo.ListByGroup(ctx, id); err == nil {
-		now := time.Now()
-		for i := range accounts {
-			account := &accounts[i]
-			if resetAt, ok := accountOAuthPreemptivePauseResetAt(account, now); ok {
-				if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
-					_ = s.accountRepo.SetRateLimited(ctx, account.ID, resetAt)
+	if s.accountRepo != nil {
+		if accounts, err := s.accountRepo.ListByGroup(ctx, id); err == nil {
+			now := time.Now()
+			for i := range accounts {
+				account := &accounts[i]
+				if resetAt, ok := accountOAuthPreemptivePauseResetAt(account, now); ok {
+					if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
+						_ = s.accountRepo.SetRateLimited(ctx, account.ID, resetAt)
+					}
 				}
 			}
 		}
@@ -2604,10 +2606,12 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	if err != nil {
 		return nil, err
 	}
-	if resetAt, ok := accountOAuthPreemptivePauseResetAt(updated, time.Now()); ok {
-		if updated.RateLimitResetAt == nil || updated.RateLimitResetAt.Before(resetAt) {
-			_ = s.accountRepo.SetRateLimited(ctx, updated.ID, resetAt)
-			updated.RateLimitResetAt = &resetAt
+	if s.accountRepo != nil {
+		if resetAt, ok := accountOAuthPreemptivePauseResetAt(updated, time.Now()); ok {
+			if updated.RateLimitResetAt == nil || updated.RateLimitResetAt.Before(resetAt) {
+				_ = s.accountRepo.SetRateLimited(ctx, updated.ID, resetAt)
+				updated.RateLimitResetAt = &resetAt
+			}
 		}
 	}
 	return updated, nil
