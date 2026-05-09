@@ -20,7 +20,9 @@ FROM ${NODE_IMAGE} AS frontend-builder
 WORKDIR /app/frontend
 
 # Install pnpm
-RUN corepack enable && corepack prepare pnpm@latest --activate
+# Pin to pnpm 9 to match the existing release workflow and avoid latest-version
+# policy changes breaking Docker builds unexpectedly.
+RUN corepack enable && corepack prepare pnpm@9 --activate
 
 # Install dependencies first (better caching)
 # Include .npmrc so pnpm inside the container uses the same script policy as CI/local builds.
