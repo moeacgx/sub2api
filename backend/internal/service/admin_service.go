@@ -1960,6 +1960,18 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 		return nil, err
 	}
 
+	if accounts, err := s.accountRepo.ListByGroup(ctx, id); err == nil {
+		now := time.Now()
+		for i := range accounts {
+			account := &accounts[i]
+			if resetAt, ok := accountOAuthPreemptivePauseResetAt(account, now); ok {
+				if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
+					_ = s.accountRepo.SetRateLimited(ctx, account.ID, resetAt)
+				}
+			}
+		}
+	}
+
 	if s.authCacheInvalidator != nil {
 		s.authCacheInvalidator.InvalidateAuthCacheByGroupID(ctx, id)
 	}
@@ -2591,6 +2603,12 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	updated, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if resetAt, ok := accountOAuthPreemptivePauseResetAt(updated, time.Now()); ok {
+		if updated.RateLimitResetAt == nil || updated.RateLimitResetAt.Before(resetAt) {
+			_ = s.accountRepo.SetRateLimited(ctx, updated.ID, resetAt)
+			updated.RateLimitResetAt = &resetAt
+		}
 	}
 	return updated, nil
 }

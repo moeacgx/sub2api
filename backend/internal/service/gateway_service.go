@@ -2737,6 +2737,39 @@ func (s *GatewayService) isAccountSchedulableForOAuthPreemptivePause(ctx context
 	return false
 }
 
+func accountOAuthPreemptivePauseResetAt(account *Account, now time.Time) (time.Time, bool) {
+	if account == nil || !account.SupportsOAuthOfficialWindowPause() {
+		return time.Time{}, false
+	}
+
+	var bestReset time.Time
+	for _, window := range []string{"5h", "7d"} {
+		utilization, _, resetAt, ok := accountOAuthOfficialWindowState(account, window, now)
+		if !ok {
+			continue
+		}
+
+		var percentLimit float64
+		switch window {
+		case "5h":
+			percentLimit = account.GetEffectiveOAuth5hPausePercent()
+		case "7d":
+			percentLimit = account.GetEffectiveOAuth7dPausePercent()
+		}
+		if percentLimit <= 0 || utilization < percentLimit {
+			continue
+		}
+		if resetAt.After(bestReset) {
+			bestReset = resetAt
+		}
+	}
+
+	if bestReset.IsZero() {
+		return time.Time{}, false
+	}
+	return bestReset, true
+}
+
 // isAccountSchedulableForQuota 检查账号是否在配额限制内
 // 适用于配置了 quota_limit 的 apikey 和 bedrock 类型账号
 func (s *GatewayService) isAccountSchedulableForQuota(account *Account) bool {
