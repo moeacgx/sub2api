@@ -2607,6 +2607,36 @@
         </div>
       </div>
 
+      <div
+        v-if="accountCategory === 'oauth-based' && (form.platform === 'openai' || form.platform === 'anthropic')"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3">
+          <h3 class="input-label mb-0 text-base font-semibold">OAuth 5h / 7d 提前休眠</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            达到百分比或金额阈值后，账号会在官方窗口打满前提前进入休眠，直到对应窗口 reset 自动恢复。
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="input-label">5h 百分比阈值</label>
+            <input v-model.number="oauth5hPausePercent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">5h 金额阈值 (USD)</label>
+            <input v-model.number="oauth5hPauseAmount" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">7d 百分比阈值</label>
+            <input v-model.number="oauth7dPausePercent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">7d 金额阈值 (USD)</label>
+            <input v-model.number="oauth7dPauseAmount" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+        </div>
+      </div>
+
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
       <div
         v-if="form.platform === 'openai' && accountCategory === 'oauth-based'"
@@ -3578,6 +3608,10 @@ const cacheTTLOverrideEnabled = ref(false)
 const cacheTTLOverrideTarget = ref<string>('5m')
 const customBaseUrlEnabled = ref(false)
 const customBaseUrl = ref('')
+const oauth5hPausePercent = ref<number | null>(null)
+const oauth5hPauseAmount = ref<number | null>(null)
+const oauth7dPausePercent = ref<number | null>(null)
+const oauth7dPauseAmount = ref<number | null>(null)
 
 // Gemini tier selection (used as fallback when auto-detection is unavailable/fails)
 const geminiTierGoogleOne = ref<'google_one_free' | 'google_ai_pro' | 'google_ai_ultra'>('google_one_free')
@@ -4269,6 +4303,10 @@ const resetForm = () => {
   cacheTTLOverrideTarget.value = '5m'
   customBaseUrlEnabled.value = false
   customBaseUrl.value = ''
+  oauth5hPausePercent.value = null
+  oauth5hPauseAmount.value = null
+  oauth7dPausePercent.value = null
+  oauth7dPauseAmount.value = null
   allowOverages.value = false
   antigravityAccountType.value = 'oauth'
   upstreamBaseUrl.value = ''
@@ -4326,14 +4364,15 @@ const buildOpenAIExtra = (base?: Record<string, unknown>): Record<string, unknow
   } else {
     delete extra.codex_cli_only
   }
-  if (
-    accountCategory.value === 'oauth-based' &&
-    codexCLIOnlyEnabled.value &&
-    codexCLIOnlyAllowClaudeCodeEnabled.value
-  ) {
-    extra.codex_cli_only_allowed_clients = ['claude_code']
-  } else {
-    delete extra.codex_cli_only_allowed_clients
+  if (accountCategory.value === 'oauth-based') {
+    if (oauth5hPausePercent.value != null && oauth5hPausePercent.value > 0) extra.oauth_5h_pause_percent = oauth5hPausePercent.value
+    else delete extra.oauth_5h_pause_percent
+    if (oauth5hPauseAmount.value != null && oauth5hPauseAmount.value > 0) extra.oauth_5h_pause_amount_usd = oauth5hPauseAmount.value
+    else delete extra.oauth_5h_pause_amount_usd
+    if (oauth7dPausePercent.value != null && oauth7dPausePercent.value > 0) extra.oauth_7d_pause_percent = oauth7dPausePercent.value
+    else delete extra.oauth_7d_pause_percent
+    if (oauth7dPauseAmount.value != null && oauth7dPauseAmount.value > 0) extra.oauth_7d_pause_amount_usd = oauth7dPauseAmount.value
+    else delete extra.oauth_7d_pause_amount_usd
   }
   if (openAICompactMode.value !== 'auto') {
     extra.openai_compact_mode = openAICompactMode.value
@@ -5346,6 +5385,10 @@ const handleAnthropicExchange = async (authCode: string) => {
       extra.custom_base_url_enabled = true
       extra.custom_base_url = customBaseUrl.value.trim()
     }
+    if (oauth5hPausePercent.value != null && oauth5hPausePercent.value > 0) extra.oauth_5h_pause_percent = oauth5hPausePercent.value
+    if (oauth5hPauseAmount.value != null && oauth5hPauseAmount.value > 0) extra.oauth_5h_pause_amount_usd = oauth5hPauseAmount.value
+    if (oauth7dPausePercent.value != null && oauth7dPausePercent.value > 0) extra.oauth_7d_pause_percent = oauth7dPausePercent.value
+    if (oauth7dPauseAmount.value != null && oauth7dPauseAmount.value > 0) extra.oauth_7d_pause_amount_usd = oauth7dPauseAmount.value
 
     const credentials: Record<string, unknown> = { ...tokenInfo }
     applyInterceptWarmup(credentials, interceptWarmupRequests.value, 'create')
@@ -5469,6 +5512,10 @@ const handleCookieAuth = async (sessionKey: string) => {
           extra.custom_base_url_enabled = true
           extra.custom_base_url = customBaseUrl.value.trim()
         }
+        if (oauth5hPausePercent.value != null && oauth5hPausePercent.value > 0) extra.oauth_5h_pause_percent = oauth5hPausePercent.value
+        if (oauth5hPauseAmount.value != null && oauth5hPauseAmount.value > 0) extra.oauth_5h_pause_amount_usd = oauth5hPauseAmount.value
+        if (oauth7dPausePercent.value != null && oauth7dPausePercent.value > 0) extra.oauth_7d_pause_percent = oauth7dPausePercent.value
+        if (oauth7dPauseAmount.value != null && oauth7dPauseAmount.value > 0) extra.oauth_7d_pause_amount_usd = oauth7dPauseAmount.value
 
         const accountName = keys.length > 1 ? `${form.name} #${i + 1}` : form.name
 

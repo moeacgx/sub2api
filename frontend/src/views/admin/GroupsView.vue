@@ -644,6 +644,31 @@
               />
             </div>
           </div>
+
+          <div
+            v-if="createForm.platform === 'openai' || createForm.platform === 'anthropic'"
+            class="mt-4 space-y-4 border-l-2 border-amber-200 pl-4 dark:border-amber-800"
+          >
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300">OAuth 账号提前休眠</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="input-label">5h 百分比阈值</label>
+                <input v-model.number="createForm.oauth_5h_pause_percent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">5h 金额阈值 (USD)</label>
+                <input v-model.number="createForm.oauth_5h_pause_amount_usd" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">7d 百分比阈值</label>
+                <input v-model.number="createForm.oauth_7d_pause_percent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">7d 金额阈值 (USD)</label>
+                <input v-model.number="createForm.oauth_7d_pause_amount_usd" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+            </div>
+          </div>
         </div>
 
         <div class="border-t pt-4">
@@ -1930,6 +1955,31 @@
                 class="input"
                 :placeholder="t('admin.groups.subscription.noLimit')"
               />
+            </div>
+          </div>
+
+          <div
+            v-if="editForm.platform === 'openai' || editForm.platform === 'anthropic'"
+            class="mt-4 space-y-4 border-l-2 border-amber-200 pl-4 dark:border-amber-800"
+          >
+            <div class="text-sm font-medium text-gray-700 dark:text-gray-300">OAuth 账号提前休眠</div>
+            <div class="grid grid-cols-2 gap-4">
+              <div>
+                <label class="input-label">5h 百分比阈值</label>
+                <input v-model.number="editForm.oauth_5h_pause_percent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">5h 金额阈值 (USD)</label>
+                <input v-model.number="editForm.oauth_5h_pause_amount_usd" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">7d 百分比阈值</label>
+                <input v-model.number="editForm.oauth_7d_pause_percent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
+              <div>
+                <label class="input-label">7d 金额阈值 (USD)</label>
+                <input v-model.number="editForm.oauth_7d_pause_amount_usd" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+              </div>
             </div>
           </div>
         </div>
@@ -3333,6 +3383,10 @@ const createForm = reactive({
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
+  oauth_5h_pause_percent: null as number | null,
+  oauth_5h_pause_amount_usd: null as number | null,
+  oauth_7d_pause_percent: null as number | null,
+  oauth_7d_pause_amount_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -3664,6 +3718,10 @@ const editForm = reactive({
   daily_limit_usd: null as number | null,
   weekly_limit_usd: null as number | null,
   monthly_limit_usd: null as number | null,
+  oauth_5h_pause_percent: null as number | null,
+  oauth_5h_pause_amount_usd: null as number | null,
+  oauth_7d_pause_percent: null as number | null,
+  oauth_7d_pause_amount_usd: null as number | null,
   // 图片生成计费配置
   allow_image_generation: false,
   image_rate_independent: false,
@@ -3916,6 +3974,10 @@ const closeCreateModal = () => {
   createForm.daily_limit_usd = null;
   createForm.weekly_limit_usd = null;
   createForm.monthly_limit_usd = null;
+  createForm.oauth_5h_pause_percent = null;
+  createForm.oauth_5h_pause_amount_usd = null;
+  createForm.oauth_7d_pause_percent = null;
+  createForm.oauth_7d_pause_amount_usd = null;
   createForm.allow_image_generation = false;
   createForm.image_rate_independent = false;
   createForm.image_rate_multiplier = 1;
@@ -3984,6 +4046,18 @@ const handleCreateGroup = async () => {
       monthly_limit_usd: normalizeOptionalLimit(
         createForm.monthly_limit_usd as number | string | null,
       ),
+      oauth_5h_pause_percent: normalizeOptionalLimit(
+        createForm.oauth_5h_pause_percent as number | string | null,
+      ),
+      oauth_5h_pause_amount_usd: normalizeOptionalLimit(
+        createForm.oauth_5h_pause_amount_usd as number | string | null,
+      ),
+      oauth_7d_pause_percent: normalizeOptionalLimit(
+        createForm.oauth_7d_pause_percent as number | string | null,
+      ),
+      oauth_7d_pause_amount_usd: normalizeOptionalLimit(
+        createForm.oauth_7d_pause_amount_usd as number | string | null,
+      ),
       model_routing: convertRoutingRulesToApiFormat(
         createModelRoutingRules.value,
       ),
@@ -4008,6 +4082,10 @@ const handleCreateGroup = async () => {
     requestData.daily_limit_usd = emptyToNull(requestData.daily_limit_usd);
     requestData.weekly_limit_usd = emptyToNull(requestData.weekly_limit_usd);
     requestData.monthly_limit_usd = emptyToNull(requestData.monthly_limit_usd);
+    requestData.oauth_5h_pause_percent = emptyToNull(requestData.oauth_5h_pause_percent);
+    requestData.oauth_5h_pause_amount_usd = emptyToNull(requestData.oauth_5h_pause_amount_usd);
+    requestData.oauth_7d_pause_percent = emptyToNull(requestData.oauth_7d_pause_percent);
+    requestData.oauth_7d_pause_amount_usd = emptyToNull(requestData.oauth_7d_pause_amount_usd);
     requestData.image_rate_multiplier = normalizeImageRateMultiplier(
       requestData.image_rate_multiplier,
     );
@@ -4042,6 +4120,10 @@ const handleEdit = async (group: AdminGroup) => {
   editForm.daily_limit_usd = group.daily_limit_usd;
   editForm.weekly_limit_usd = group.weekly_limit_usd;
   editForm.monthly_limit_usd = group.monthly_limit_usd;
+  editForm.oauth_5h_pause_percent = group.oauth_5h_pause_percent ?? null;
+  editForm.oauth_5h_pause_amount_usd = group.oauth_5h_pause_amount_usd ?? null;
+  editForm.oauth_7d_pause_percent = group.oauth_7d_pause_percent ?? null;
+  editForm.oauth_7d_pause_amount_usd = group.oauth_7d_pause_amount_usd ?? null;
   editForm.allow_image_generation = group.allow_image_generation ?? false;
   editForm.image_rate_independent = group.image_rate_independent ?? false;
   editForm.image_rate_multiplier = group.image_rate_multiplier ?? 1;
@@ -4117,6 +4199,18 @@ const handleUpdateGroup = async () => {
       monthly_limit_usd: normalizeOptionalLimit(
         editForm.monthly_limit_usd as number | string | null,
       ),
+      oauth_5h_pause_percent: normalizeOptionalLimit(
+        editForm.oauth_5h_pause_percent as number | string | null,
+      ),
+      oauth_5h_pause_amount_usd: normalizeOptionalLimit(
+        editForm.oauth_5h_pause_amount_usd as number | string | null,
+      ),
+      oauth_7d_pause_percent: normalizeOptionalLimit(
+        editForm.oauth_7d_pause_percent as number | string | null,
+      ),
+      oauth_7d_pause_amount_usd: normalizeOptionalLimit(
+        editForm.oauth_7d_pause_amount_usd as number | string | null,
+      ),
       fallback_group_id:
         editForm.fallback_group_id === null ? 0 : editForm.fallback_group_id,
       fallback_group_id_on_invalid_request:
@@ -4147,6 +4241,10 @@ const handleUpdateGroup = async () => {
     payload.daily_limit_usd = emptyToNull(payload.daily_limit_usd);
     payload.weekly_limit_usd = emptyToNull(payload.weekly_limit_usd);
     payload.monthly_limit_usd = emptyToNull(payload.monthly_limit_usd);
+    payload.oauth_5h_pause_percent = emptyToNull(payload.oauth_5h_pause_percent);
+    payload.oauth_5h_pause_amount_usd = emptyToNull(payload.oauth_5h_pause_amount_usd);
+    payload.oauth_7d_pause_percent = emptyToNull(payload.oauth_7d_pause_percent);
+    payload.oauth_7d_pause_amount_usd = emptyToNull(payload.oauth_7d_pause_amount_usd);
     payload.image_rate_multiplier = normalizeImageRateMultiplier(
       payload.image_rate_multiplier,
     );

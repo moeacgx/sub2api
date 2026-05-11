@@ -178,6 +178,10 @@ func groupFromServiceBase(g *service.Group) Group {
 		DailyLimitUSD:                   g.DailyLimitUSD,
 		WeeklyLimitUSD:                  g.WeeklyLimitUSD,
 		MonthlyLimitUSD:                 g.MonthlyLimitUSD,
+		OAuth5hPausePercent:             g.OAuth5hPausePercent,
+		OAuth5hPauseAmount:              g.OAuth5hPauseAmount,
+		OAuth7dPausePercent:             g.OAuth7dPausePercent,
+		OAuth7dPauseAmount:              g.OAuth7dPauseAmount,
 		AllowImageGeneration:            g.AllowImageGeneration,
 		ImageRateIndependent:            g.ImageRateIndependent,
 		ImageRateMultiplier:             g.ImageRateMultiplier,
@@ -234,6 +238,18 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 		SessionWindowEnd:        a.SessionWindowEnd,
 		SessionWindowStatus:     a.SessionWindowStatus,
 		GroupIDs:                a.GroupIDs,
+	}
+	if limit := a.GetOAuth5hPausePercent(); limit > 0 {
+		out.OAuth5hPausePercent = &limit
+	}
+	if limit := a.GetOAuth5hPauseAmount(); limit > 0 {
+		out.OAuth5hPauseAmount = &limit
+	}
+	if limit := a.GetOAuth7dPausePercent(); limit > 0 {
+		out.OAuth7dPausePercent = &limit
+	}
+	if limit := a.GetOAuth7dPauseAmount(); limit > 0 {
+		out.OAuth7dPauseAmount = &limit
 	}
 
 	// 提取 5h 窗口费用控制和会话数量控制配置（仅 Anthropic OAuth/SetupToken 账号有效）

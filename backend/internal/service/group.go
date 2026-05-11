@@ -24,6 +24,10 @@ type Group struct {
 	DailyLimitUSD       *float64
 	WeeklyLimitUSD      *float64
 	MonthlyLimitUSD     *float64
+	OAuth5hPausePercent *float64
+	OAuth5hPauseAmount  *float64
+	OAuth7dPausePercent *float64
+	OAuth7dPauseAmount  *float64
 	DefaultValidityDays int
 
 	// 图片生成计费配置（antigravity 和 gemini 平台使用）

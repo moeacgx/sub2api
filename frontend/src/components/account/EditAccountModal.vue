@@ -1645,6 +1645,36 @@
         />
       </div>
 
+      <div
+        v-if="account?.type === 'oauth' && (account?.platform === 'openai' || account?.platform === 'anthropic')"
+        class="border-t border-gray-200 pt-4 dark:border-dark-600"
+      >
+        <div class="mb-3">
+          <h3 class="input-label mb-0 text-base font-semibold">OAuth 5h / 7d 提前休眠</h3>
+          <p class="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            达到百分比或金额阈值后，账号会在官方窗口打满前提前进入休眠，直到对应窗口 reset 自动恢复。
+          </p>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div>
+            <label class="input-label">5h 百分比阈值</label>
+            <input v-model.number="oauth5hPausePercent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">5h 金额阈值 (USD)</label>
+            <input v-model.number="oauth5hPauseAmount" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">7d 百分比阈值</label>
+            <input v-model.number="oauth7dPausePercent" type="number" min="0" max="100" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+          <div>
+            <label class="input-label">7d 金额阈值 (USD)</label>
+            <input v-model.number="oauth7dPauseAmount" type="number" min="0" step="0.01" class="input" placeholder="留空表示不启用" />
+          </div>
+        </div>
+      </div>
+
       <!-- OpenAI OAuth Codex 官方客户端限制开关 -->
       <div
         v-if="account?.platform === 'openai' && account?.type === 'oauth'"
@@ -2575,6 +2605,10 @@ const cacheTTLOverrideEnabled = ref(false)
 const cacheTTLOverrideTarget = ref<string>('5m')
 const customBaseUrlEnabled = ref(false)
 const customBaseUrl = ref('')
+const oauth5hPausePercent = ref<number | null>(null)
+const oauth5hPauseAmount = ref<number | null>(null)
+const oauth7dPausePercent = ref<number | null>(null)
+const oauth7dPauseAmount = ref<number | null>(null)
 
 // OpenAI 自动透传开关（OAuth/API Key）
 const openaiPassthroughEnabled = ref(false)
@@ -3455,6 +3489,17 @@ function loadQuotaControlSettings(account: Account) {
   cacheTTLOverrideTarget.value = '5m'
   customBaseUrlEnabled.value = false
   customBaseUrl.value = ''
+  oauth5hPausePercent.value = null
+  oauth5hPauseAmount.value = null
+  oauth7dPausePercent.value = null
+  oauth7dPauseAmount.value = null
+
+  if (account.type === 'oauth' && (account.platform === 'openai' || account.platform === 'anthropic')) {
+    oauth5hPausePercent.value = account.oauth_5h_pause_percent ?? null
+    oauth5hPauseAmount.value = account.oauth_5h_pause_amount_usd ?? null
+    oauth7dPausePercent.value = account.oauth_7d_pause_percent ?? null
+    oauth7dPauseAmount.value = account.oauth_7d_pause_amount_usd ?? null
+  }
 
   // Remaining quota control settings only apply to Anthropic accounts
   if (account.platform !== 'anthropic') {
@@ -3970,6 +4015,17 @@ const handleSubmit = async () => {
       const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
       const newExtra: Record<string, unknown> = { ...currentExtra }
 
+      if (props.account.type === 'oauth') {
+        if (oauth5hPausePercent.value != null && oauth5hPausePercent.value > 0) newExtra.oauth_5h_pause_percent = oauth5hPausePercent.value
+        else delete newExtra.oauth_5h_pause_percent
+        if (oauth5hPauseAmount.value != null && oauth5hPauseAmount.value > 0) newExtra.oauth_5h_pause_amount_usd = oauth5hPauseAmount.value
+        else delete newExtra.oauth_5h_pause_amount_usd
+        if (oauth7dPausePercent.value != null && oauth7dPausePercent.value > 0) newExtra.oauth_7d_pause_percent = oauth7dPausePercent.value
+        else delete newExtra.oauth_7d_pause_percent
+        if (oauth7dPauseAmount.value != null && oauth7dPauseAmount.value > 0) newExtra.oauth_7d_pause_amount_usd = oauth7dPauseAmount.value
+        else delete newExtra.oauth_7d_pause_amount_usd
+      }
+
       // Window cost limit settings
       if (windowCostEnabled.value && windowCostLimit.value != null && windowCostLimit.value > 0) {
         newExtra.window_cost_limit = windowCostLimit.value
@@ -4073,13 +4129,21 @@ const handleSubmit = async () => {
     }
 
     // For OpenAI OAuth/API Key accounts, handle passthrough mode in extra
-	if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'apikey')) {
-		const currentExtra = (props.account.extra as Record<string, unknown>) || {}
-		const newExtra: Record<string, unknown> = { ...currentExtra }
+    if (props.account.platform === 'openai' && (props.account.type === 'oauth' || props.account.type === 'apikey')) {
+      const currentExtra = (updatePayload.extra as Record<string, unknown>) || (props.account.extra as Record<string, unknown>) || {}
+      const newExtra: Record<string, unknown> = { ...currentExtra }
       const hadCodexCLIOnlyEnabled = currentExtra.codex_cli_only === true
       if (props.account.type === 'oauth') {
         newExtra.openai_oauth_responses_websockets_v2_mode = openaiOAuthResponsesWebSocketV2Mode.value
         newExtra.openai_oauth_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiOAuthResponsesWebSocketV2Mode.value)
+        if (oauth5hPausePercent.value != null && oauth5hPausePercent.value > 0) newExtra.oauth_5h_pause_percent = oauth5hPausePercent.value
+        else delete newExtra.oauth_5h_pause_percent
+        if (oauth5hPauseAmount.value != null && oauth5hPauseAmount.value > 0) newExtra.oauth_5h_pause_amount_usd = oauth5hPauseAmount.value
+        else delete newExtra.oauth_5h_pause_amount_usd
+        if (oauth7dPausePercent.value != null && oauth7dPausePercent.value > 0) newExtra.oauth_7d_pause_percent = oauth7dPausePercent.value
+        else delete newExtra.oauth_7d_pause_percent
+        if (oauth7dPauseAmount.value != null && oauth7dPauseAmount.value > 0) newExtra.oauth_7d_pause_amount_usd = oauth7dPauseAmount.value
+        else delete newExtra.oauth_7d_pause_amount_usd
       } else if (props.account.type === 'apikey') {
         newExtra.openai_apikey_responses_websockets_v2_mode = openaiAPIKeyResponsesWebSocketV2Mode.value
         newExtra.openai_apikey_responses_websockets_v2_enabled = isOpenAIWSModeEnabled(openaiAPIKeyResponsesWebSocketV2Mode.value)

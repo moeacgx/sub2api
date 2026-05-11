@@ -1682,6 +1682,57 @@ func (a *Account) GetCustomBaseURL() string {
 	return a.GetExtraString("custom_base_url")
 }
 
+func (a *Account) GetOAuth5hPausePercent() float64 {
+	return a.getExtraFloat64("oauth_5h_pause_percent")
+}
+
+func (a *Account) GetOAuth5hPauseAmount() float64 {
+	return a.getExtraFloat64("oauth_5h_pause_amount_usd")
+}
+
+func (a *Account) GetOAuth7dPausePercent() float64 {
+	return a.getExtraFloat64("oauth_7d_pause_percent")
+}
+
+func (a *Account) GetOAuth7dPauseAmount() float64 {
+	return a.getExtraFloat64("oauth_7d_pause_amount_usd")
+}
+
+func (a *Account) GetEffectiveOAuth5hPausePercent() float64 {
+	if v := a.GetOAuth5hPausePercent(); v > 0 {
+		return v
+	}
+	return a.getExtraFloat64("effective_oauth_5h_pause_percent")
+}
+
+func (a *Account) GetEffectiveOAuth5hPauseAmount() float64 {
+	if v := a.GetOAuth5hPauseAmount(); v > 0 {
+		return v
+	}
+	return a.getExtraFloat64("effective_oauth_5h_pause_amount_usd")
+}
+
+func (a *Account) GetEffectiveOAuth7dPausePercent() float64 {
+	if v := a.GetOAuth7dPausePercent(); v > 0 {
+		return v
+	}
+	return a.getExtraFloat64("effective_oauth_7d_pause_percent")
+}
+
+func (a *Account) GetEffectiveOAuth7dPauseAmount() float64 {
+	if v := a.GetOAuth7dPauseAmount(); v > 0 {
+		return v
+	}
+	return a.getExtraFloat64("effective_oauth_7d_pause_amount_usd")
+}
+
+func (a *Account) SupportsOAuthOfficialWindowPause() bool {
+	if a == nil || a.Type != AccountTypeOAuth {
+		return false
+	}
+	return a.Platform == PlatformOpenAI || a.Platform == PlatformAnthropic
+}
+
 // IsCacheTTLOverrideEnabled 检查是否启用缓存 TTL 强制替换
 // 仅适用于 Anthropic OAuth/SetupToken 类型账号
 // 启用后将所有 cache creation tokens 归入指定的 TTL 类型（5m 或 1h）

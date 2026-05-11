@@ -181,6 +181,13 @@ func ProvideSubscriptionExpiryService(userSubRepo UserSubscriptionRepository, se
 	return svc
 }
 
+// ProvideOAuthPreemptivePauseService creates and starts OAuthPreemptivePauseService.
+func ProvideOAuthPreemptivePauseService(accountRepo AccountRepository, usageRepo UsageLogRepository) *OAuthPreemptivePauseService {
+	svc := NewOAuthPreemptivePauseService(accountRepo, usageRepo, 2*time.Minute)
+	svc.Start()
+	return svc
+}
+
 // ProvideTimingWheelService creates and starts TimingWheelService
 func ProvideTimingWheelService() (*TimingWheelService, error) {
 	svc, err := NewTimingWheelService()
@@ -565,6 +572,7 @@ var ProviderSet = wire.NewSet(
 	ProvideAccountExpiryService,
 	ProvideProxyExpiryService,
 	ProvideSubscriptionExpiryService,
+	ProvideOAuthPreemptivePauseService,
 	ProvideTimingWheelService,
 	ProvideDashboardAggregationService,
 	ProvideUsageCleanupService,

@@ -91,10 +91,14 @@ type Group struct {
 	IsExclusive    bool    `json:"is_exclusive"`
 	Status         string  `json:"status"`
 
-	SubscriptionType string   `json:"subscription_type"`
-	DailyLimitUSD    *float64 `json:"daily_limit_usd"`
-	WeeklyLimitUSD   *float64 `json:"weekly_limit_usd"`
-	MonthlyLimitUSD  *float64 `json:"monthly_limit_usd"`
+	SubscriptionType    string   `json:"subscription_type"`
+	DailyLimitUSD       *float64 `json:"daily_limit_usd"`
+	WeeklyLimitUSD      *float64 `json:"weekly_limit_usd"`
+	MonthlyLimitUSD     *float64 `json:"monthly_limit_usd"`
+	OAuth5hPausePercent *float64 `json:"oauth_5h_pause_percent,omitempty"`
+	OAuth5hPauseAmount  *float64 `json:"oauth_5h_pause_amount_usd,omitempty"`
+	OAuth7dPausePercent *float64 `json:"oauth_7d_pause_percent,omitempty"`
+	OAuth7dPauseAmount  *float64 `json:"oauth_7d_pause_amount_usd,omitempty"`
 
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration bool     `json:"allow_image_generation"`
@@ -195,6 +199,10 @@ type Account struct {
 	// 从 extra 字段提取，方便前端显示和编辑
 	WindowCostLimit         *float64 `json:"window_cost_limit,omitempty"`
 	WindowCostStickyReserve *float64 `json:"window_cost_sticky_reserve,omitempty"`
+	OAuth5hPausePercent     *float64 `json:"oauth_5h_pause_percent,omitempty"`
+	OAuth5hPauseAmount      *float64 `json:"oauth_5h_pause_amount_usd,omitempty"`
+	OAuth7dPausePercent     *float64 `json:"oauth_7d_pause_percent,omitempty"`
+	OAuth7dPauseAmount      *float64 `json:"oauth_7d_pause_amount_usd,omitempty"`
 
 	// 会话数量控制（仅 Anthropic OAuth/SetupToken 账号有效）
 	// 从 extra 字段提取，方便前端显示和编辑

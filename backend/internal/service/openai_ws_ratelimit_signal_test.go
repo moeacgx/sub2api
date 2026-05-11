@@ -239,6 +239,51 @@ func TestOpenAIGatewayService_Forward_WSv2Handshake429PersistsRateLimit(t *testi
 	require.Contains(t, repo.updateExtra[0], "codex_usage_updated_at")
 }
 
+func TestOpenAIGatewayService_UpdateCodexUsageSnapshot_TriggersPreemptivePause(t *testing.T) {
+	repo := &openAICodexSnapshotAsyncRepo{
+		stubOpenAIAccountRepo: stubOpenAIAccountRepo{
+			accounts: []Account{
+				{
+					ID:       903,
+					Platform: PlatformOpenAI,
+					Type:     AccountTypeOAuth,
+					Extra: map[string]any{
+						"oauth_5h_pause_percent": 1.0,
+					},
+				},
+			},
+		},
+		updateExtraCh: make(chan map[string]any, 1),
+		rateLimitCh:   make(chan time.Time, 1),
+	}
+
+	svc := &OpenAIGatewayService{accountRepo: repo}
+	snapshot := &OpenAICodexUsageSnapshot{
+		PrimaryUsedPercent:         float64Ptr(30),
+		PrimaryResetAfterSeconds:   intPtr(300),
+		PrimaryWindowMinutes:       intPtr(300),
+		SecondaryUsedPercent:       float64Ptr(0),
+		SecondaryResetAfterSeconds: intPtr(7200),
+		SecondaryWindowMinutes:     intPtr(10080),
+	}
+
+	svc.updateCodexUsageSnapshot(context.Background(), 903, snapshot)
+
+	select {
+	case updates := <-repo.updateExtraCh:
+		require.Equal(t, 30.0, updates["codex_5h_used_percent"])
+	case <-time.After(2 * time.Second):
+		t.Fatal("等待 codex 快照写入超时")
+	}
+
+	select {
+	case resetAt := <-repo.rateLimitCh:
+		require.True(t, resetAt.After(time.Now()), "预期设置未来的 resetAt")
+	case <-time.After(2 * time.Second):
+		t.Fatal("预期命中 5h 百分比阈值后立即休眠")
+	}
+}
+
 func TestOpenAIGatewayService_ProxyResponsesWebSocketFromClient_ErrorEventUsageLimitPersistsRateLimit(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 
