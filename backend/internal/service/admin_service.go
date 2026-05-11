@@ -180,15 +180,19 @@ type AdminBoundAuthIdentityChannel struct {
 }
 
 type CreateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   float64
-	IsExclusive      bool
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                string
+	Description         string
+	Platform            string
+	RateMultiplier      float64
+	IsExclusive         bool
+	SubscriptionType    string   // standard/subscription
+	DailyLimitUSD       *float64 // 日限额 (USD)
+	WeeklyLimitUSD      *float64 // 周限额 (USD)
+	MonthlyLimitUSD     *float64 // 月限额 (USD)
+	OAuth5hPausePercent *float64
+	OAuth5hPauseAmount  *float64
+	OAuth7dPausePercent *float64
+	OAuth7dPauseAmount  *float64
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration bool
 	ImageRateIndependent bool
@@ -219,16 +223,20 @@ type CreateGroupInput struct {
 }
 
 type UpdateGroupInput struct {
-	Name             string
-	Description      string
-	Platform         string
-	RateMultiplier   *float64 // 使用指针以支持设置为0
-	IsExclusive      *bool
-	Status           string
-	SubscriptionType string   // standard/subscription
-	DailyLimitUSD    *float64 // 日限额 (USD)
-	WeeklyLimitUSD   *float64 // 周限额 (USD)
-	MonthlyLimitUSD  *float64 // 月限额 (USD)
+	Name                string
+	Description         string
+	Platform            string
+	RateMultiplier      *float64 // 使用指针以支持设置为0
+	IsExclusive         *bool
+	Status              string
+	SubscriptionType    string   // standard/subscription
+	DailyLimitUSD       *float64 // 日限额 (USD)
+	WeeklyLimitUSD      *float64 // 周限额 (USD)
+	MonthlyLimitUSD     *float64 // 月限额 (USD)
+	OAuth5hPausePercent *float64
+	OAuth5hPauseAmount  *float64
+	OAuth7dPausePercent *float64
+	OAuth7dPauseAmount  *float64
 	// 图片生成计费配置（仅 antigravity 平台使用）
 	AllowImageGeneration *bool
 	ImageRateIndependent *bool
@@ -1671,6 +1679,10 @@ func (s *adminServiceImpl) CreateGroup(ctx context.Context, input *CreateGroupIn
 		DailyLimitUSD:                   dailyLimit,
 		WeeklyLimitUSD:                  weeklyLimit,
 		MonthlyLimitUSD:                 monthlyLimit,
+		OAuth5hPausePercent:             normalizeLimit(input.OAuth5hPausePercent),
+		OAuth5hPauseAmount:              normalizeLimit(input.OAuth5hPauseAmount),
+		OAuth7dPausePercent:             normalizeLimit(input.OAuth7dPausePercent),
+		OAuth7dPauseAmount:              normalizeLimit(input.OAuth7dPauseAmount),
 		AllowImageGeneration:            input.AllowImageGeneration,
 		ImageRateIndependent:            input.ImageRateIndependent,
 		ImageRateMultiplier:             imageRateMultiplier,
@@ -1849,6 +1861,10 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 	group.DailyLimitUSD = normalizeLimit(input.DailyLimitUSD)
 	group.WeeklyLimitUSD = normalizeLimit(input.WeeklyLimitUSD)
 	group.MonthlyLimitUSD = normalizeLimit(input.MonthlyLimitUSD)
+	group.OAuth5hPausePercent = normalizeLimit(input.OAuth5hPausePercent)
+	group.OAuth5hPauseAmount = normalizeLimit(input.OAuth5hPauseAmount)
+	group.OAuth7dPausePercent = normalizeLimit(input.OAuth7dPausePercent)
+	group.OAuth7dPauseAmount = normalizeLimit(input.OAuth7dPauseAmount)
 	// 图片生成计费配置：负数表示清除（使用默认价格）
 	if input.AllowImageGeneration != nil {
 		group.AllowImageGeneration = *input.AllowImageGeneration
@@ -1942,6 +1958,20 @@ func (s *adminServiceImpl) UpdateGroup(ctx context.Context, id int64, input *Upd
 
 	if err := s.groupRepo.Update(ctx, group); err != nil {
 		return nil, err
+	}
+
+	if s.accountRepo != nil {
+		if accounts, err := s.accountRepo.ListByGroup(ctx, id); err == nil {
+			now := time.Now()
+			for i := range accounts {
+				account := &accounts[i]
+				if resetAt, ok := accountOAuthPreemptivePauseResetAt(account, now); ok {
+					if account.RateLimitResetAt == nil || account.RateLimitResetAt.Before(resetAt) {
+						_ = s.accountRepo.SetRateLimited(ctx, account.ID, resetAt)
+					}
+				}
+			}
+		}
 	}
 
 	if s.authCacheInvalidator != nil {
@@ -2575,6 +2605,14 @@ func (s *adminServiceImpl) UpdateAccount(ctx context.Context, id int64, input *U
 	updated, err := s.accountRepo.GetByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+	if s.accountRepo != nil {
+		if resetAt, ok := accountOAuthPreemptivePauseResetAt(updated, time.Now()); ok {
+			if updated.RateLimitResetAt == nil || updated.RateLimitResetAt.Before(resetAt) {
+				_ = s.accountRepo.SetRateLimited(ctx, updated.ID, resetAt)
+				updated.RateLimitResetAt = &resetAt
+			}
+		}
 	}
 	return updated, nil
 }

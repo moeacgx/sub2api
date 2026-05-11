@@ -17,6 +17,7 @@ type sessionWindowMockRepo struct {
 	sessionWindowCalls []swCall
 	updateExtraCalls   []ueCall
 	clearRateLimitIDs  []int64
+	rateLimitCalls     []time.Time
 }
 
 var _ AccountRepository = (*sessionWindowMockRepo)(nil)
@@ -134,8 +135,9 @@ func (m *sessionWindowMockRepo) ListSchedulableUngroupedByPlatform(context.Conte
 func (m *sessionWindowMockRepo) ListSchedulableUngroupedByPlatforms(context.Context, []string) ([]Account, error) {
 	panic("unexpected")
 }
-func (m *sessionWindowMockRepo) SetRateLimited(context.Context, int64, time.Time) error {
-	panic("unexpected")
+func (m *sessionWindowMockRepo) SetRateLimited(_ context.Context, _ int64, resetAt time.Time) error {
+	m.rateLimitCalls = append(m.rateLimitCalls, resetAt)
+	return nil
 }
 func (m *sessionWindowMockRepo) SetModelRateLimit(context.Context, int64, string, time.Time) error {
 	panic("unexpected")
@@ -366,5 +368,36 @@ func TestUpdateSessionWindow_NoStatusHeader(t *testing.T) {
 
 	if len(repo.sessionWindowCalls) != 0 {
 		t.Errorf("expected no calls when status header absent, got %d", len(repo.sessionWindowCalls))
+	}
+}
+
+func TestUpdateSessionWindow_TriggersPreemptivePauseAfterHeaderUpdate(t *testing.T) {
+	resetUnix := time.Now().Add(2 * time.Hour).Unix()
+
+	repo := &sessionWindowMockRepo{}
+	svc := newRateLimitServiceForTest(repo)
+
+	windowEnd := time.Unix(resetUnix, 0)
+	account := &Account{
+		ID:               91,
+		Platform:         PlatformAnthropic,
+		Type:             AccountTypeOAuth,
+		SessionWindowEnd: &windowEnd,
+		Extra: map[string]any{
+			"oauth_5h_pause_percent": 40.0,
+		},
+	}
+	headers := http.Header{}
+	headers.Set("anthropic-ratelimit-unified-5h-status", "allowed")
+	headers.Set("anthropic-ratelimit-unified-5h-reset", fmt.Sprintf("%d", resetUnix))
+	headers.Set("anthropic-ratelimit-unified-5h-utilization", "0.42")
+
+	svc.UpdateSessionWindow(context.Background(), account, headers)
+
+	if len(repo.rateLimitCalls) != 1 {
+		t.Fatalf("expected 1 SetRateLimited call, got %d", len(repo.rateLimitCalls))
+	}
+	if repo.rateLimitCalls[0].Unix() != resetUnix {
+		t.Fatalf("expected resetAt unix %d, got %d", resetUnix, repo.rateLimitCalls[0].Unix())
 	}
 }
