@@ -718,6 +718,10 @@ func NewGatewayService(
 	if path := strings.TrimSpace(os.Getenv(debugGatewayBodyEnv)); path != "" {
 		svc.initDebugGatewayBodyFile(path)
 	}
+	// auto-assign: inject account extra updater for TLS fingerprint profile_id=-1
+	if tlsFPProfileService != nil {
+		tlsFPProfileService.SetAccountExtraUpdater(accountRepo)
+	}
 	return svc
 }
 

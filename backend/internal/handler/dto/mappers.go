@@ -267,7 +267,7 @@ func AccountFromServiceShallow(a *service.Account) *Account {
 			out.EnableTLSFingerprint = &enabled
 		}
 		// TLS指纹模板ID
-		if profileID := a.GetTLSFingerprintProfileID(); profileID > 0 {
+		if profileID := a.GetTLSFingerprintProfileID(); profileID != 0 {
 			out.TLSFingerprintProfileID = &profileID
 		}
 		// 会话ID伪装开关

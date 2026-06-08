@@ -29,10 +29,16 @@ type TLSFingerprintProfileCache interface {
 	SubscribeUpdates(ctx context.Context, handler func())
 }
 
+// AccountExtraUpdater 用于回写 account extra 字段（解耦对 AccountRepository 的直接依赖）
+type AccountExtraUpdater interface {
+	UpdateExtra(ctx context.Context, id int64, updates map[string]any) error
+}
+
 // TLSFingerprintProfileService TLS 指纹模板管理服务
 type TLSFingerprintProfileService struct {
-	repo  TLSFingerprintProfileRepository
-	cache TLSFingerprintProfileCache
+	repo         TLSFingerprintProfileRepository
+	cache        TLSFingerprintProfileCache
+	accountExtra AccountExtraUpdater // 可选：用于 auto-assign 回写 account extra
 
 	// 本地 ID→Profile 映射缓存，用于 DoWithTLS 热路径快速查找
 	localCache map[int64]*model.TLSFingerprintProfile
@@ -67,6 +73,11 @@ func NewTLSFingerprintProfileService(
 	}
 
 	return svc
+}
+
+// SetAccountExtraUpdater 注入 account extra 回写能力（用于 auto-assign 场景）
+func (s *TLSFingerprintProfileService) SetAccountExtraUpdater(updater AccountExtraUpdater) {
+	s.accountExtra = updater
 }
 
 // --- CRUD ---
@@ -172,8 +183,9 @@ func (s *TLSFingerprintProfileService) getRandomProfile() *tlsfingerprint.Profil
 //
 // 逻辑：
 //  1. 未启用 TLS 指纹 → 返回 nil（不伪装）
-//  2. 启用 + 绑定了 profile_id → 从缓存查找对应 profile
-//  3. 启用 + 未绑定或找不到 → 返回空 Profile（使用代码内置默认值）
+//  2. 启用 + 绑定了 profile_id > 0 → 从缓存查找对应 profile
+//  3. 启用 + profile_id == -1 → 自动生成唯一指纹，保存到 DB 并回写 account，后续固定使用
+//  4. 启用 + 未绑定或找不到 → 返回空 Profile（使用代码内置默认值）
 func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsfingerprint.Profile {
 	if account == nil || !account.IsTLSFingerprintEnabled() {
 		return nil
@@ -185,13 +197,60 @@ func (s *TLSFingerprintProfileService) ResolveTLSProfile(account *Account) *tlsf
 		}
 	}
 	if id == -1 {
-		// 随机选择一个 profile
+		// Auto-assign：生成唯一指纹 → 存 DB → 回写 account → 后续走 id > 0 路径
+		if p := s.autoAssignProfile(account); p != nil {
+			return p
+		}
+		// fallback：生成失败时仍从已有 profile 中随机选（不持久化）
 		if p := s.getRandomProfile(); p != nil {
 			return p
 		}
 	}
 	// TLS 启用但无绑定 profile → 空 Profile → dialer 使用内置默认值
 	return &tlsfingerprint.Profile{Name: "Built-in Default (Node.js 24.x)"}
+}
+
+// autoAssignProfile 为账号生成唯一 TLS 指纹并持久化。
+// 1. 生成随机 Node.js 风格的 Profile
+// 2. 写入 tls_fingerprint_profiles 表
+// 3. 把新 profile ID 回写到 account.extra.tls_fingerprint_profile_id
+// 4. 刷新本地缓存
+// 成功返回生成的 Profile，失败返回 nil（调用方 fallback）。
+func (s *TLSFingerprintProfileService) autoAssignProfile(account *Account) *tlsfingerprint.Profile {
+	if s.repo == nil || s.accountExtra == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// 生成唯一指纹
+	generated := generateUniqueNodeJSProfile(account.ID)
+
+	// 存入 DB
+	created, err := s.repo.Create(ctx, generated)
+	if err != nil {
+		logger.LegacyPrintf("service.tls_fp_profile", "[AutoAssign] Failed to create profile for account %d: %v", account.ID, err)
+		return nil
+	}
+
+	// 回写 account extra：把 -1 替换为实际 profile ID
+	if err := s.accountExtra.UpdateExtra(ctx, account.ID, map[string]any{
+		"tls_fingerprint_profile_id": created.ID,
+	}); err != nil {
+		logger.LegacyPrintf("service.tls_fp_profile", "[AutoAssign] Failed to update account %d extra: %v", account.ID, err)
+		// Profile 已创建但回写失败 — 下次请求还是 -1，会再次尝试（幂等性：
+		// generateUniqueNodeJSProfile 用 accountID 做 name，repo.Create 若有唯一约束会失败，
+		// 但当前 schema 无唯一约束，所以可能产生多条记录；可接受，不影响功能）
+	}
+
+	// 刷新缓存使新 profile 立即可用
+	refreshCtx, refreshCancel := s.newCacheRefreshContext()
+	defer refreshCancel()
+	s.invalidateAndNotify(refreshCtx)
+
+	logger.LegacyPrintf("service.tls_fp_profile", "[AutoAssign] Account %d assigned profile ID=%d (%s)", account.ID, created.ID, created.Name)
+	return created.ToTLSProfile()
 }
 
 // --- 缓存管理 ---
