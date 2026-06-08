@@ -1727,7 +1727,10 @@ func (a *Account) GetEffectiveOAuth7dPauseAmount() float64 {
 }
 
 func (a *Account) SupportsOAuthOfficialWindowPause() bool {
-	if a == nil || a.Type != AccountTypeOAuth {
+	if a == nil {
+		return false
+	}
+	if a.Type != AccountTypeOAuth && a.Type != AccountTypeSetupToken {
 		return false
 	}
 	return a.Platform == PlatformOpenAI || a.Platform == PlatformAnthropic
