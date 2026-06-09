@@ -1171,7 +1171,16 @@ const cols = computed(() =>
   )
 )
 
-const handleEdit = (a: Account) => { edAcc.value = a; showEdit.value = true }
+const handleEdit = async (a: Account) => {
+  edAcc.value = a
+  showEdit.value = true
+  // Refresh proxy list so newly added proxies appear immediately
+  try {
+    proxies.value = await adminAPI.proxies.getAll()
+  } catch (e) {
+    console.error('Failed to refresh proxies', e)
+  }
+}
 const openMenu = (a: Account, e: MouseEvent) => {
   menu.acc = a
 
