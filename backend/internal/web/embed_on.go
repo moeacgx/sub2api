@@ -108,7 +108,11 @@ func (s *FrontendServer) Middleware() gin.HandlerFunc {
 			return
 		}
 
-		// Serve static files normally
+		// Serve static files - add long-lived cache for hashed assets
+		if strings.HasPrefix(cleanPath, "assets/") {
+			// Assets have content-hash in filename - safe to cache for 1 year
+			c.Header("Cache-Control", "public, max-age=31536000, immutable")
+		}
 		s.fileServer.ServeHTTP(c.Writer, c.Request)
 		c.Abort()
 	}
