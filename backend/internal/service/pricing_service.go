@@ -24,6 +24,15 @@ import (
 var (
 	openAIModelDatePattern     = regexp.MustCompile(`-\d{8}$`)
 	openAIModelBasePattern     = regexp.MustCompile(`^(gpt-\d+(?:\.\d+)?)(?:-|$)`)
+	claudeFable5FallbackPricing = &LiteLLMModelPricing{
+		InputCostPerToken:             1e-05,  // $10 per MTok
+		OutputCostPerToken:            5e-05,  // $50 per MTok
+		CacheCreationInputTokenCost:   1.25e-05,
+		CacheReadInputTokenCost:       1e-06,
+		LiteLLMProvider:               "anthropic",
+		Mode:                          "chat",
+		SupportsPromptCaching:         true,
+	}
 	openAIGPT54FallbackPricing = &LiteLLMModelPricing{
 		InputCostPerToken:               2.5e-06, // $2.5 per MTok
 		OutputCostPerToken:              1.5e-05, // $15 per MTok
@@ -671,6 +680,7 @@ func (s *PricingService) matchByModelFamily(model string) *LiteLLMModelPricing {
 	// 因子串关系误匹配 "claude-opus-4-7"（opus-4.7 系列）。
 	// 注意：原 map 实现存在 Go map 迭代随机性导致的同类 bug，此处改为有序切片修复。
 	families := []modelFamily{
+		{name: "fable-5", match: []string{"claude-fable-5", "claude-fable5"}},
 		{name: "opus-4.7", match: []string{"claude-opus-4-7", "claude-opus-4.7"}, pricing: []string{"claude-opus-4-7", "claude-opus-4.7", "claude-opus-4-6"}},
 		{name: "opus-4.6", match: []string{"claude-opus-4-6", "claude-opus-4.6"}},
 		{name: "opus-4.5", match: []string{"claude-opus-4-5", "claude-opus-4.5"}},
@@ -756,6 +766,12 @@ func (s *PricingService) matchByModelFamily(model string) *LiteLLMModelPricing {
 				return pricing
 			}
 		}
+	}
+
+	// LiteLLM 尚未收录时使用静态兜底
+	if matched.name == "fable-5" {
+		logger.LegacyPrintf("service.pricing", "[Pricing] Fable-5 static fallback for %s", model)
+		return claudeFable5FallbackPricing
 	}
 
 	return nil

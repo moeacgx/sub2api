@@ -72,6 +72,7 @@ const (
 // 与前端 useModelWhitelist.ts 中的 antigravityDefaultMappings 保持一致
 var DefaultAntigravityModelMapping = map[string]string{
 	// Claude 白名单
+	"claude-fable-5":             "claude-fable-5",            // 官方模型
 	"claude-opus-4-8":            "claude-opus-4-8",          // 官方模型
 	"claude-opus-4-7":            "claude-opus-4-7",          // 官方模型
 	"claude-opus-4-6-thinking":   "claude-opus-4-6-thinking", // 官方模型
